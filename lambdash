@@ -15,14 +15,33 @@
 # contain a lot of useful information about what went wrong.
 #
 
+platform='unknown'
+unamestr=`uname`
+if [[ "$unamestr" == 'Linux' ]]; then
+  platform='linux'
+elif [[ "$unamestr" == 'Darwin' ]]; then
+  platform='osx'
+  echo "platform=$platform"
+fi
+
 # Edit these to match your setup
 lambdash_function=lambdash
-lambdash_bucket=lambdash.alestic.com
+lambdash_bucket=lambdash-bucket
 
 command="$*"
-uuid=$(uuid)
 
-args_file=$(mktemp /tmp/$lambdash_function-args-XXXXXX.json)
+if [[ $platform == 'osx' ]]; then
+  uuid=$(uuidgen)
+else
+  uuid=$(uuid)
+fi
+
+if [[ $platform == 'osx' ]]; then
+  args_file=$(mktemp -t $lambdash_function-args.json)
+else
+  args_file=$(mktemp /tmp/$lambdash_function-args-XXXXXX.json)
+fi
+
 stdout_file=$lambdash_function/$lambdash_function-$uuid-stdout.txt
 stderr_file=$lambdash_function/$lambdash_function-$uuid-stderr.txt
 cat > $args_file <<EOM
