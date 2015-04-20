@@ -21,12 +21,12 @@ if [[ "$unamestr" == 'Linux' ]]; then
   platform='linux'
 elif [[ "$unamestr" == 'Darwin' ]]; then
   platform='osx'
-  echo "platform=$platform"
 fi
 
 # Edit these to match your setup
 lambdash_function=lambdash
-lambdash_bucket=lambdash-bucket
+lambdash_bucket=pas256-lambdash
+region=us-west-2
 
 command="$*"
 
@@ -54,17 +54,18 @@ cat > $args_file <<EOM
 EOM
 
 aws lambda invoke-async \
+   --region $region \
    --function-name "$lambdash_function" \
    --invoke-args "$args_file" > /dev/null
 
 mkdir -p -m700 /tmp/$lambdash_function
-while ! aws s3 cp s3://$lambdash_bucket/$stderr_file /tmp/$stderr_file \
+while ! aws s3 cp --region $region s3://$lambdash_bucket/$stderr_file /tmp/$stderr_file \
        >/dev/null 2>&1; do
   sleep 1
 done
 cat /tmp/$stderr_file >&2
 
-while ! aws s3 cp s3://$lambdash_bucket/$stdout_file /tmp/$stdout_file \
+while ! aws s3 cp --region $region s3://$lambdash_bucket/$stdout_file /tmp/$stdout_file \
        >/dev/null 2>&1; do
   sleep 1
 done
@@ -74,5 +75,5 @@ cat /tmp/$stdout_file
 rm $args_file
 rm /tmp/$stderr_file
 rm /tmp/$stdout_file
-aws s3 rm s3://$lambdash_bucket/$stderr_file >/dev/null
-aws s3 rm s3://$lambdash_bucket/$stdout_file >/dev/null
+aws s3 rm --region $region s3://$lambdash_bucket/$stderr_file >/dev/null
+aws s3 rm --region $region s3://$lambdash_bucket/$stdout_file >/dev/null

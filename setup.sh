@@ -1,9 +1,10 @@
-bucket_name=lambdash-bucket
+bucket_name=pas256-lambdash
 
 function=lambdash
 lambda_execution_role_name=lambda-$function-execution
 lambda_execution_access_policy_name=lambda-$function-execution-access
 log_group_name=/aws/lambda/$function
+region=us-west-2
 
 lambda_execution_role_arn=$(aws iam create-role   --role-name "$lambda_execution_role_name"   --assume-role-policy-document '{
       "Version": "2012-10-17",
@@ -36,7 +37,9 @@ wget -q -O$function.js   https://raw.githubusercontent.com/alestic/lambdash/mast
 
 npm install async fs tmp
 zip -r $function.zip $function.js node_modules
-aws lambda upload-function   --function-name "$function"   --function-zip "$function.zip"   --runtime nodejs   --mode event   --handler "$function.handler"   --role "$lambda_execution_role_arn"   --timeout 60   --memory-size 256
+aws lambda create-function --region $region --function-name "$function"  --runtime nodejs   --handler "$function.handler"   --role "$lambda_execution_role_arn"   --timeout 60   --memory-size 256  --zip-file "fileb://./$function.zip"
+
+aws lambda update-function-code  --region $region  --function-name "$function"   --zip-file "fileb://./$function.zip"
 
 cat > $function-args.json <<EOM
 {
@@ -47,19 +50,20 @@ cat > $function-args.json <<EOM
 }
 EOM
 
-aws lambda invoke-async   --function-name "$function"   --invoke-args "$function-args.json"
+aws lambda invoke-async   --region $region --function-name "$function"   --invoke-args "$function-args.json"
 
 log_stream_names=$(aws logs describe-log-streams   --log-group-name "$log_group_name"   --output text   --query 'logStreams[*].logStreamName') &&
 for log_stream_name in $log_stream_names; do
   aws logs get-log-events     --log-group-name "$log_group_name"     --log-stream-name "$log_stream_name"     --output text     --query 'events[*].message'
 done | less
 
-aws s3 cp s3://$bucket_name/$function/stdout.txt .
-aws s3 cp s3://$bucket_name/$function/stderr.txt .
+aws s3 mb --region $region s3://$bucket_name
+aws s3 cp --region $region s3://$bucket_name/$function/stdout.txt .
+aws s3 cp --region $region s3://$bucket_name/$function/stderr.txt .
 less stdout.txt stderr.txt
 
-aws s3 rm s3://$bucket_name/$function/stdout.txt
-aws s3 rm s3://$bucket_name/$function/stderr.txt
+aws s3 rm --region $region s3://$bucket_name/$function/stdout.txt
+aws s3 rm --region $region s3://$bucket_name/$function/stderr.txt
 #aws lambda delete-function   --function-name "$function"
 #aws iam delete-role-policy   --role-name "$lambda_execution_role_name"   --policy-name "$lambda_execution_access_policy_name"
 #aws iam delete-role   --role-name "$lambda_execution_role_name"
